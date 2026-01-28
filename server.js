@@ -1,66 +1,113 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const {exec} = require('child_process');
 const qr = require('qr-image');
+const open = require('open').default;
+const os = require('os');
+
+const PORT = 3000;
+
+let clients = [];
 
 const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
+
+
 const COFFEE_DIR = path.join(process.env.HOME, 'code/mini/local-coffee/order-tickets');
 if(!fs.existsSync(COFFEE_DIR)) fs.mkdirSync(COFFEE_DIR, {recursive: true});
 
-app.post('/create_ticket', (req, res) => {
-    const {name, caffeine, milk, temp, timestamp} = req.body;
-    const formatName = name.replace(/\s+/g, '_');
-    const fileName = `ticket_${formatName}_${timestamp}.html`;
-    const filepath = path.join(COFFEE_DIR, fileName);
-    
-    const html= `
-    <div style="font-family:sans-serif; background:#fff; padding:20px; border-radius:10px; width:250px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
-        <h2>${name}</h2>
-        <p>${caffeine}</p>
-        <p>${milk}</p>
-        <p>${temp}</p>
-        <p>${new Date(timestamp).toLocaleTimeString()}</p>
-    </div>
-    `;
-    fs.writeFileSync(filepath, html);
-    exec('/bin/bash /Users/athena/code/mini/scripts/generate_viewer.sh');
-    res.send(`ticket created: ${fileName}`);
+const TICKETS_FILE = path.join(COFFEE_DIR, 'tickets.json');
+function readTickets(){
+    if(!fs.existsSync(TICKETS_FILE)) return [];
+    return JSON.parse(fs.readFileSync(TICKETS_FILE, 'utf8'));
+}
+function writeTickets(tickets){
+    fs.writeFileSync(TICKETS_FILE, JSON.stringify(tickets, null, 2));
+}
+app.post('/tickets', (req, res) => {
+    const ticket = {
+        id: Date.now().toString(),
+        ...req.body,
+        completed: false,
+        createdAt: Date.now()
+    }
+    const tickets = readTickets();
+    tickets.push(ticket);
+    writeTickets(tickets);
+    broadcast({ type:'new', ticket })
+    res.json(ticket);
+});
+app.get('/tickets', (req, res) => {
+    res.json(readTickets());
+});
+app.post('/tickets/:id/complete', (req, res) => {
+    const tickets = readTickets();
+    const ticket = tickets.find(t => t.id === req.params.id);
+    if(ticket) ticket.completed = true;
+    writeTickets(tickets);
+    broadcast({ type: 'complete', id: req.params.id });
+    res.json({ ok: true });
 });
 
-// app.get('/view_tickets', (req, res) => {
-//     const files = fs.readdirSync(COFFEE_DIR).filter(f => f.endsWith('.html'));
-//     let ticketsHtml = '';
-//     files.forEach(file => {
-//         ticketsHtml += fs.readFileSync(path.join(COFFEE_DIR, file), 'utf8');
-//     });
 
-//     res.send(`
-//     <!DOCTYPE html>
-//     <html>
-//     <head>
-//         <title>coffee orders</title>
-//         <style>
-//             body { display:flex; flex-wrap: wrap; gap:10px; font-samily:sans-serif; }
-//             .ticket { background:#fff; padding:15px; border-radius:10px; box-shadow:0 2px 4px rgba(0,0,0,0.1); width:200px; }
-//         </style>
-//     </head>
-//     <body>
-//         ${ticketsHtml}
-//     </body>
-//     </html>
-//     `)
-// });
-
+function getLocalIP() {
+    const nets = os.networkInterfaces();
+    for (const name of Object.keys(nets)) {
+        for (const net of nets[name]) {
+            if (net.family === 'IPv4' && !net.internal){
+                return net.address;
+            }
+        }
+    }
+    return 'localhost'
+}
 app.get('/qr', (req, res) => {
-    const hostIP = req.headers.host.split(':')[0];
-    const url = `http://${hostIP}:3000/order.html`;
+    const ip = getLocalIP();
+    const url = `http://${ip}:${PORT}/`;
     const qrSvg = qr.image(url, { type: 'svg' });
     res.type('svg');
     qrSvg.pipe(res);
-})
+});
+app.get('/info', (req, res) => {
+    const ip = getLocalIP();
+    res.json({
+        url: `http://${ip}:${PORT}/`
+    });
+});
 
-const PORT = 3000;
-app.listen(PORT, () => console.log(`coffee running at http://localhost:${PORT}`));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'order.html'));
+});
+app.get('/viewer', (req, res) => {
+    if(req.headers.host.startsWith('localhost')){
+        res.sendFile(path.join(__dirname, 'viewer.html'));
+    } else {
+        res.status(403).send('barista only')
+    }
+});
+
+function broadcast(data){
+    clients.forEach(c => {
+        c.write(`data: ${JSON.stringify(data)}\n\n`)
+    })
+}
+app.get('/events', (req, res) => {
+    res.set({
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+    });
+    res.flushHeaders();
+    res.write('retry: 3000\n\n');
+    clients.push(res);
+    req.on('close', () => {
+        clients = clients.filter(c => c !== res);
+    });
+});
+
+
+app.listen(PORT, () => {
+    console.log(`coffee running at http://localhost:${PORT}`);
+    open(`http://localhost:${PORT}/viewer`);
+});

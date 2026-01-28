@@ -12,11 +12,9 @@
         <label><input type="radio" name="caffeine" value="espresso" required> espresso</label>
         <label><input type="radio" name="caffeine" value="matcha"> matcha</label><br><br>
 
-        <!-- <label>temp:</label> -->
         <label><input type="radio" name="temp" value="hot" required> hot</label>
         <label><input type="radio" name="temp" value="cold"> cold</label><br><br>
 
-        <!-- <label>milk:</label> -->
         <label><input type="checkbox" name="milk"> milk?</label><br><br>
 
         <button type="submit">submit</button>
@@ -30,6 +28,8 @@
         
         form.addEventListener('submit', async function(e){
             e.preventDefault();
+            const btn = form.querySelector('button[type="submit"]');
+            btn.disabled = true;
             const data = new FormData(form);
             const order = {
                 name: data.get('name'),
@@ -39,17 +39,19 @@
                 timestamp: Date.now(),
             };
             try {
-                const res = await fetch('/create_ticket', {
+                const res = await fetch('/tickets', {
                     method: 'POST',
                     headers: {'Content-Type':'application/json'},
                     body: JSON.stringify(order)
                 });
-                const text = await res.text();
-                status.innerText = text;
+                const ticket = await res.json();
+                status.innerText = 'order submitted for ${ticket.name}. pls wait';
                 form.reset();
             } catch(err) {
                 status.innerText = "eeehhh?? try again pls";
                 console.error(err);
+            } finally {
+                btn.disabled = false;
             }
         });
     </script>
