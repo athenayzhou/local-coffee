@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>coffee order</title>
+</head>
+<body>
+    <h2>coffee order</h2>
+    <form id="orderForm">
+        <label>name: <input type="text" name="name" required></label><br><br>
+
+        <label>caffeine:</label>
+        <label><input type="radio" name="caffeine" value="espresso" required> espresso</label>
+        <label><input type="radio" name="caffeine" value="matcha"> matcha</label><br><br>
+
+        <!-- <label>temp:</label> -->
+        <label><input type="radio" name="temp" value="hot" required> hot</label>
+        <label><input type="radio" name="temp" value="cold"> cold</label><br><br>
+
+        <!-- <label>milk:</label> -->
+        <label><input type="checkbox" name="milk"> milk?</label><br><br>
+
+        <button type="submit">submit</button>
+    </form>
+    
+    <p id="status"></p>
+
+    <script>
+        const form = document.getElementById('orderForm');
+        const status = document.getElementById('status');
+        
+        form.addEventListener('submit', async function(e){
+            e.preventDefault();
+            const data = new FormData(form);
+            const order = {
+                name: data.get('name'),
+                caffeine: data.get('caffeine'),
+                temp: data.get('temp'),
+                milk: data.get('milk') ? "milk" : "no milk",
+                timestamp: Date.now(),
+            };
+            try {
+                const res = await fetch('/create_ticket', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(order)
+                });
+                const text = await res.text();
+                status.innerText = text;
+                form.reset();
+            } catch(err) {
+                status.innerText = "eeehhh?? try again pls";
+                console.error(err);
+            }
+        });
+    </script>
+</body>
+</html>
