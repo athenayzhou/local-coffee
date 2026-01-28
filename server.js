@@ -4,6 +4,7 @@ const path = require('path');
 const qr = require('qr-image');
 const open = require('open').default;
 const os = require('os');
+const { exec } = require('child_process');
 
 const PORT = 3000;
 
@@ -80,11 +81,11 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'order.html'));
 });
 app.get('/viewer', (req, res) => {
-    if(req.headers.host.startsWith('localhost')){
+    // if(req.headers.host.startsWith('localhost')){
         res.sendFile(path.join(__dirname, 'viewer.html'));
-    } else {
-        res.status(403).send('barista only')
-    }
+    // } else {
+        // res.status(403).send('barista only')
+    // }
 });
 
 function broadcast(data){
@@ -106,6 +107,13 @@ app.get('/events', (req, res) => {
     });
 });
 
+
+app.post('/start-coffee', (req,res) => {
+    exec('bash ~/code/mini/local-coffee/start-coffee.sh', (err, stdout, stderr) => {
+        if(err) return res.status(500).send(stderr);
+        res.send(stdout);
+    })
+})
 
 app.listen(PORT, () => {
     console.log(`coffee running at http://localhost:${PORT}`);
