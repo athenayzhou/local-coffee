@@ -1,87 +1,70 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Coffee Orders</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>✰barista✰</title>
     <style>
         body {
             font-family: system-ui;
             background: #f6f6f6;
             margin: 0;
             padding: 20px;
-            display: flex;
-            gap: 20px;
-            flex-direction: column;
-        }
-        #board {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            min-width: 220px;
-            width: 100%;
         }
         .ticket {
             background: linear-gradient(145deg, #ffffff, #f0f0f0);
             border-radius: 12px;
             padding: 16px;
-            width: 220px;
+            margin-bottom: 16px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-            gap: 6px;
-            display: block;
         }
-        .ticket strong {
-            font-size: 1.1em;
-            color: #333;
+        .ticket h2 {
+            margin: 0 0 8px;
         }
-        .ticket div {
-            font-size: 0.95em;
-            color: #555;
-        }
-        .ticket button {
+        button {
             margin-top: 10px;
-            padding: 6px 0;
+            padding: 10px;
+            width: 100%;
             border: none;
-            background: #656565;
+            border-radius: 8px;
+            background: #333;
             color: white;
-            font-weight: bold;
-            border-radius: 6px;
-            width: 100%;
-            transition: background 0.2s ease;
-        }
-        #sidebar {
-            width: 100%;
-            margin-top: 20px;
-        }
-        #qr {
-            width: 240px;
-            max-width: 100%;
-        }
-        #log {
-            background: #fff;
-            border-top: 1px solid #ccc;
-            max-height: 150px;
-            overflow-y: auto;
-            font-size: 12px;
-            padding: 5px;
+            font-size: 16px;
         }
     </style>
 </head>
+
 <body>
+<h3>make the drink</h3>
+<div id="tickets"></div>
+<script>
+    async function loadTickets(){
+        try {
+            const res = await fetch('/tickets');
+            const tickets = await res.json();
+            const el = document.getElementById('tickets');
+            el.innerHTML = '';
 
-<h3>order hereee</h3>
+            tickets.filter(t => !t.completed).forEach(t => {
+                const div = document.createElement('div');
+                div.className = 'ticket';
+                div.innerHTML = `
+                    <h2>${t.name}</h2>
+                    <div>${t.milk}</div>
+                    <div>${t.temp}</div>
+                    <button onclick="done('${t.id}')">done</button>
+                `;
+                el.appendChild(div);
+            });
+        } catch (e) {}
+    }
 
-<div id="board"></div>
+    async function done(id){
+        await fetch('/tickets/' + id + '/complete', { method: 'POST' });
+        loadTickets();
+    }
 
-<div id="sidebar">
-    <img id="qr" />
-    <p id="url" style="font-size:12px;"></p>
-</div>
-
-<pre id="log"></pre>
-
-
-<!-- <script src="viewer.js"></script> -->
-<script src="viewer.js?ts=123456"></script>
+    loadTickets();
+    setInterval(loadTickets, 3000);
+</script>
 </body>
 </html>

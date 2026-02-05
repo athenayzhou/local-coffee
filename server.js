@@ -1,4 +1,3 @@
-const https = require('https');
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -12,13 +11,7 @@ let clients = [];
 const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
-
 const PORT = 3000;
-
-const options = {
-    key: fs.readFileSync('/Users/athena/code/certs/server.key'),
-    cert: fs.readFileSync('/Users/athena/code/certs/server.crt')
-}
 
 function getLocalIP() {
     const nets = os.networkInterfaces();
@@ -48,6 +41,25 @@ function writeTickets(tickets){
 }
 
 
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'order.html'));
+});
+
+app.get('/qr', (req, res) => {
+    const ip = getLocalIP();
+    const url = `http://${ip}:${PORT}/`;
+    const qrPng = qr.image(url, { type: 'png' });
+    res.type('png');
+    qrPng.pipe(res);
+});
+
+app.get('/viewer', (req, res) => {
+    res.sendFile(path.join(__dirname, 'viewer.html'));
+});
+
+app.get('/tickets', (req, res) => {
+    res.json(readTickets());
+});
 
 app.post('/tickets', (req, res) => {
     const ticket = {
@@ -62,9 +74,7 @@ app.post('/tickets', (req, res) => {
     broadcast({ type:'new', ticket })
     res.json(ticket);
 });
-app.get('/tickets', (req, res) => {
-    res.json(readTickets());
-});
+
 app.post('/tickets/:id/complete', (req, res) => {
     const tickets = readTickets();
     const ticket = tickets.find(t => t.id === req.params.id);
@@ -74,29 +84,6 @@ app.post('/tickets/:id/complete', (req, res) => {
     res.json({ ok: true });
 });
 
-
-app.get('/qr', (req, res) => {
-    const ip = getLocalIP();
-    const url = `http://${ip}:${PORT}/`;
-    const qrPng = qr.image(url, { type: 'png' });
-    res.type('png');
-    qrPng.pipe(res);
-});
-
-app.get('/info', (req, res) => {
-    const ip = getLocalIP();
-    res.json({
-        url: `http://${ip}:${PORT}/`
-    });
-});
-
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'order.html'));
-});
-
-app.get('/viewer', (req, res) => {
-    res.sendFile(path.join(__dirname, 'viewer.html'));
-});
 
 function broadcast(data){
     clients.forEach(c => {
@@ -125,22 +112,8 @@ app.post('/start-coffee', (req,res) => {
     })
 })
 
-// const server = https.createServer(options, app);
-// server.listen(PORT, () => {
-//     const ip = getLocalIP();
-//     console.log(`HTTPS server running at https://${ip}:${PORT}`);
-//     open(`https://${ip}:${PORT}/viewer`);
-// });
-
-app.post('/start-coffee', (req, res) => {
-    exec('bash ~/code/mini/local-coffee/start-coffee.sh', (err, stdout, stderr) => {
-        if (err) return res.status(500).send(stderr);
-        res.send(stdout);
-    });
-});
-
-// --- Start HTTP server ---
 app.listen(PORT, '0.0.0.0', () => {
     const ip = getLocalIP();
-    console.log(`Coffee running at http://${ip}:${PORT}`);
+    console.log(`coffee brewing at http://${ip}:${PORT}`);
+    open(`http://${ip}:${PORT}/qr`);
 });
