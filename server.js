@@ -1,3 +1,4 @@
+const https = require('https');
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -6,16 +7,35 @@ const open = require('open').default;
 const os = require('os');
 const { exec } = require('child_process');
 
-const PORT = 3000;
-
 let clients = [];
 
 const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
 
+const PORT = 3000;
 
-const COFFEE_DIR = path.join(process.env.HOME, 'code/mini/local-coffee/order-tickets');
+const options = {
+    key: fs.readFileSync('/Users/athena/code/certs/server.key'),
+    cert: fs.readFileSync('/Users/athena/code/certs/server.crt')
+}
+
+function getLocalIP() {
+    const nets = os.networkInterfaces();
+    for (const name of Object.keys(nets)) {
+        for (const net of nets[name]) {
+            if (net.family === 'IPv4' &&
+                !net.internal &&
+                !net.address.startsWith('169.254')
+            ){
+                return net.address;
+            }
+        }
+    }
+    return 'localhost'
+}
+
+const COFFEE_DIR = path.join(__dirname, 'order-tickets');
 if(!fs.existsSync(COFFEE_DIR)) fs.mkdirSync(COFFEE_DIR, {recursive: true});
 
 const TICKETS_FILE = path.join(COFFEE_DIR, 'tickets.json');
@@ -26,6 +46,9 @@ function readTickets(){
 function writeTickets(tickets){
     fs.writeFileSync(TICKETS_FILE, JSON.stringify(tickets, null, 2));
 }
+
+
+
 app.post('/tickets', (req, res) => {
     const ticket = {
         id: Date.now().toString(),
@@ -52,24 +75,14 @@ app.post('/tickets/:id/complete', (req, res) => {
 });
 
 
-function getLocalIP() {
-    const nets = os.networkInterfaces();
-    for (const name of Object.keys(nets)) {
-        for (const net of nets[name]) {
-            if (net.family === 'IPv4' && !net.internal){
-                return net.address;
-            }
-        }
-    }
-    return 'localhost'
-}
 app.get('/qr', (req, res) => {
     const ip = getLocalIP();
     const url = `http://${ip}:${PORT}/`;
-    const qrSvg = qr.image(url, { type: 'svg' });
-    res.type('svg');
-    qrSvg.pipe(res);
+    const qrPng = qr.image(url, { type: 'png' });
+    res.type('png');
+    qrPng.pipe(res);
 });
+
 app.get('/info', (req, res) => {
     const ip = getLocalIP();
     res.json({
@@ -80,12 +93,9 @@ app.get('/info', (req, res) => {
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'order.html'));
 });
+
 app.get('/viewer', (req, res) => {
-    // if(req.headers.host.startsWith('localhost')){
-        res.sendFile(path.join(__dirname, 'viewer.html'));
-    // } else {
-        // res.status(403).send('barista only')
-    // }
+    res.sendFile(path.join(__dirname, 'viewer.html'));
 });
 
 function broadcast(data){
@@ -115,7 +125,22 @@ app.post('/start-coffee', (req,res) => {
     })
 })
 
-app.listen(PORT, () => {
-    console.log(`coffee running at http://localhost:${PORT}`);
-    open(`http://localhost:${PORT}/viewer`);
+// const server = https.createServer(options, app);
+// server.listen(PORT, () => {
+//     const ip = getLocalIP();
+//     console.log(`HTTPS server running at https://${ip}:${PORT}`);
+//     open(`https://${ip}:${PORT}/viewer`);
+// });
+
+app.post('/start-coffee', (req, res) => {
+    exec('bash ~/code/mini/local-coffee/start-coffee.sh', (err, stdout, stderr) => {
+        if (err) return res.status(500).send(stderr);
+        res.send(stdout);
+    });
+});
+
+// --- Start HTTP server ---
+app.listen(PORT, '0.0.0.0', () => {
+    const ip = getLocalIP();
+    console.log(`Coffee running at http://${ip}:${PORT}`);
 });

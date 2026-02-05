@@ -1,21 +1,25 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>orders</title>
+    <meta charset="UTF-8">
+    <title>Coffee Orders</title>
     <style>
         body {
             font-family: system-ui;
             background: #f6f6f6;
+            margin: 0;
             padding: 20px;
             display: flex;
             gap: 20px;
+            flex-direction: column;
         }
         #board {
             flex: 1;
             display: flex;
             flex-direction: column;
-            flex-wrap: wrap;
             gap: 12px;
+            min-width: 220px;
+            width: 100%;
         }
         .ticket {
             background: linear-gradient(145deg, #ffffff, #f0f0f0);
@@ -24,8 +28,7 @@
             width: 220px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.15);
             gap: 6px;
-            font-family: 'Helvetica', sans-serif;
-            transition: transform 015s ease, box-shadow 0.15s ease;
+            display: block;
         }
         .ticket strong {
             font-size: 1.1em;
@@ -43,75 +46,42 @@
             color: white;
             font-weight: bold;
             border-radius: 6px;
-            transition: background 0.2s ease;
             width: 100%;
+            transition: background 0.2s ease;
         }
         #sidebar {
-            width: 260px;
+            width: 100%;
+            margin-top: 20px;
+        }
+        #qr {
+            width: 240px;
+            max-width: 100%;
+        }
+        #log {
+            background: #fff;
+            border-top: 1px solid #ccc;
+            max-height: 150px;
+            overflow-y: auto;
+            font-size: 12px;
+            padding: 5px;
         }
     </style>
 </head>
 <body>
-    <div id="board"></div>
-    <div id="sidebar">
-        <h3>order heree</h3>
-        <img id="qr" width="240" />
-        <p id="url" style="font-size: 12px;"></p>
-    </div>
 
-    <script>
-    const board = document.getElementById('board');
-    const tickets = new Map();
-    function render(){
-        board.innerHTML = '';
-        tickets.forEach(t => {
-            if(t.completed) return;
-            const div = document.createElement('div');
-            div.className = 'ticket';
-            div.innerHTML = `
-              <strong>${t.name}</strong>
-              <div>${t.caffeine}</div>
-              <div>${t.milk}</div>
-              <div>${t.temp}</div>
-              <div>ordered at ${new Date(t.createdAt).toLocaleTimeString()}</div>
-              <button onclick="complete('${t.id}')">done</button>
-            `;
-            board.appendChild(div);
-        })
-    }
-    async function complete(id){
-        await fetch(`/tickets/${id}/complete`, { method: 'POST' });
-    }
+<h3>order hereee</h3>
+
+<div id="board"></div>
+
+<div id="sidebar">
+    <img id="qr" />
+    <p id="url" style="font-size:12px;"></p>
+</div>
+
+<pre id="log"></pre>
 
 
-    const es = new EventSource('/events');
-    es.onmessage = (e) => {
-        const msg = JSON.parse(e.data);
-        if (msg.type === 'new'){
-            tickets.set(msg.ticket.id, msg.ticket);
-        }
-        if(msg.type === 'complete'){
-            const t = tickets.get(msg.id);
-            if(t) t.completed = true;
-        }
-        render();
-    };
-
-
-    const qr = document.getElementById('qr');
-    const urlText = document.getElementById('url');
-    async function updateQR(){
-        // qr.style.opacity = 0;
-        setTimeout(() => {
-            qr.src = `/qr?ts=${Date.now()}`;
-            // qr.style.opacity = 1;
-        }, 200);
-        const info = await fetch('/info').then(r => r.json());
-        urlText.textContent = info.url;
-    }
-    // qr.style.transition = 'opacity 1s ease';
-    setInterval(updateQR, 5000);
-    updateQR();
-    </script>
+<!-- <script src="viewer.js"></script> -->
+<script src="viewer.js?ts=123456"></script>
 </body>
 </html>
