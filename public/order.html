@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>coffee order</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system;
+            padding: 20px;
+            background: #fafafa;
+        }
+        h2 {
+            text-align: center;
+        }
+        label.inline {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        label.inline.radio {
+            margin-bottom: 0;
+        }
+        .radio-group {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        input[type="text"], select, textarea{
+            flex: 1;
+        }
+        input[type="checkbox"], input[type="radio"]{
+            width: auto;
+            margin: 0;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+        textarea {
+            resize: vertical;
+        }
+    </style>
+</head>
+<body>
+    <h2>coffee order</h2>
+    <form id="orderForm">
+        <label class="inline">name: <input type="text" name="name" required></label>
+        <label class="inline">drink: <input type="text" name="drink" required></label>
+
+        <div class="radio-group">
+            <label>temp: </label>
+            <label class="inline radio"><input type="radio" name="temp" value="hot" required> hot</label>
+            <label class="inline radio"><input type="radio" name="temp" value="cold"> cold</label>
+        </div>
+
+        <label class="inline">milk: 
+        <select name="milk" required>
+            <option value="oat milk" selected>oat milk</option>
+            <option value="no milk">no milk</option>
+        </select>
+        </label>
+
+        <label class="inline"><input type="checkbox" name="extraShot"> extra shot</label>
+        <textarea name="notes" placeholder="any extra instructtions..."></textarea>
+
+        <button type="submit">submit</button>
+    </form>
+    
+    <p id="status"></p>
+
+    <script>
+        const form = document.getElementById('orderForm');
+        const status = document.getElementById('status');
+        
+        form.addEventListener('submit', async function(e){
+            e.preventDefault();
+            const btn = form.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            const data = new FormData(form);
+            const order = {
+                name: data.get('name'),
+                drink: data.get('drink'),
+                temp: data.get('temp'),
+                milk: data.get('milk'),
+                extraShot: data.get('extraShot') ? true : false,
+                notes: data.get('notes') || "",
+                createdAt: Date.now()
+            };
+            try {
+                const res = await fetch('/tickets', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(order)
+                });
+                const { ticket } = await res.json();
+                alert(`order submitted for ${ticket.name}. pls wait`);
+                form.reset();
+            } catch(err) {
+                status.innerText = "eeehhh?? try again pls";
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
