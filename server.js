@@ -8,8 +8,11 @@ const { exec } = require('child_process');
 
 const app = express();
 app.use(express.json());
-app.use(express.static(__dirname));
+// app.use(express.static(__dirname));
 const PORT = 3000;
+
+const buildPath = path.join(__dirname, 'web', 'build');
+app.use(express.static(buildPath));
 
 let lastViewerHTML = null;
 
@@ -62,11 +65,8 @@ function renderViewer(todaysTickets) {
     <div class="ticket-header">ORDER #${order.id.slice(-3)} - ${order.name.toUpperCase()}</div>
     <div class="divider">────────────</div>
       <div class="drink">${drinkPrefix} ${order.drink.toUpperCase()}</div>
-      <div class="meta">${order.milk.toUpperCase()}</div>
+      <div class="meta">${order.milk ? "OAT MILK" : "NO MILK"}</div>
       ${order.extraShot ? `<div class="meta">EXTRA SHOT</div>` : ""}
-      ${order.notes ? `
-        <div class="notes-title">Notes:</div>
-        <div class="notes">${order.notes}</div>` : ""}
     <div class="divider">────────────</div>
     <div class="time">${new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</div>
 </div>
@@ -165,7 +165,8 @@ console.log('viewer copied to iCloud for backup');
 
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "order.html"));
+    // res.sendFile(path.join(__dirname, "public", "order.html"));
+    res.sendFile(path.join(buildPath, "index.html"));
 });
 
 app.get('/qr', (req, res) => {
@@ -177,22 +178,28 @@ app.get('/qr', (req, res) => {
 });
 
 app.post('/tickets', (req, res) => {
-    const tickets = readTickets();
-    const ticket = {
-        id: Date.now().toString(),
-        name: req.body.name,
-        drink: req.body.drink,
-        temp: req.body.temp,
-        milk: req.body.milk,
-        notes: req.body.notes,
-        createdAt: Date.now(),
-        completed: false,
+    try {
+        const tickets = readTickets();
+        const ticket = {
+            id: Date.now().toString(),
+            name: req.body.name,
+            drink: req.body.drink,
+            temp: req.body.temp,
+            milk: req.body.milk,
+            extraShot: req.body.extraShot,
+            // notes: req.body.notes,
+            createdAt: Date.now(),
+            completed: false,
+        }
+        tickets.push(ticket);
+        writeTickets(tickets);
+        const todays = getTodaysTickets(tickets);
+        renderViewer(todays);
+        res.json({ ok: true, ticket });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ ok: false, error: err.message });
     }
-    tickets.push(ticket);
-    writeTickets(tickets);
-    const todays = getTodaysTickets(tickets);
-    renderViewer(todays);
-    res.json({ ok: true, ticket });
 });
 
 app.post('/tickets/:id/complete', (req, res) => {
